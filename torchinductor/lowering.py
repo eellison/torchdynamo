@@ -1725,6 +1725,7 @@ def constant_boundary_condition_2d(x, fill_value, padding):
 
     def load(index):
         *prefix, ih, iw = index
+        
         mask = ops.and_(
             ops.and_(
                 ops.ge(
@@ -1935,6 +1936,114 @@ def max_pool2d_with_indices_backward(
         inner_fn=fn,
         ranges=new_size,
     )
+
+def pad_adaptive_loader(x):
+    *_, h, w = x.get_size()
+    x_loader = x.make_loader()
+
+    # loader(prefix, [ih, iw], [h_start_index, w_start_index], [h_end_index, w_end_index])
+    def load(prefix, increments, start_indices, end_indices):
+        ih, iw = increments
+        h_start_index, w_start_index = start_indices
+        h_end_index, w_end_index = end_indices
+
+        ih_expr = ops.index_expr(ih, torch.int64)
+        iw_expr = ops.index_expr(iw, torch.int64)
+        
+
+        mask = ops.and_(
+            ops.lt(
+                ops.index_expr(h_start_index + ih, torch.int64),
+                ops.index_expr(h_end_index, torch.int64)
+            ),
+            ops.lt(
+                ops.index_expr(w_start_index + iw, torch.int64),
+                ops.index_expr(w_end_index, torch.int64)
+            ),
+        )
+        def foo():
+            import pdb; pdb.set_trace() 
+            return x_loader([*prefix, h_start_index + ih, w_start_index + iw])
+
+        ops.masked(mask, lambda: x_loader([*prefix, ih, iw]), 0.0)
+
+    return load
+
+@register_lowering(aten._adaptive_avg_pool2d)
+def _adaptive_avg_pool2d(x, output_size):
+    assert isinstance(x, TensorBox)
+    assert len(output_size) == 2
+
+    ndim = len(x.get_size())
+    *batch, h, w = x.get_size()
+    h_out, w_out = output_size
+
+    # if input is multiple of output, can directly lowering to avg_pool2d
+    if V.graph.sizevars.size_hint(h % h_out) == 0 and V.graph.sizevars.size_hint(w % w_out) == 0:
+        assert V.graph.sizevars.maybe_guard_multiple_of(h, h_out) and V.graph.sizevars.maybe_guard_multiple_of(w, w_out)
+        kernel_size = [h / h_out, w / w_out]
+        return avg_pool2d(x, kernel_size)
+
+    x.realize_hint()
+
+    # guard on the max kernel size, height and width likely stable (TODO-how to relax guard if it has previously failed ?)
+    h_in_size_hint = V.graph.sizevars.size_hint(h)
+    w_in_size_hint = V.graph.sizevars.size_hint(w)
+    # add guard
+
+    import math
+    h_kernel_max = int(math.ceil(h_in_size_hint / h_out))
+    w_kernel_max = int(math.ceil(w_in_size_hint / w_out)) 
+
+    new_size = list(batch) + [h_out, w_out]
+    dtype = x.get_dtype()
+    
+    def fn_sum(idx, loader):
+        *prefix, bh, bw = idx
+
+        def start_index(index, out_dim, inp_dim):
+            # ind = ops.index_expr(index * inp_dim, torch.float32)
+            # return ops.index_expr(ops.floor(ops.div(ind, out_dim)), torch.int32)
+            return ((index * inp_dim) / out_dim)
+            # return ops.index_expr(ops.floor(float(index * inp_dim) / out_dim), torch.int32)
+    
+        def end_index(index, out_dim, inp_dim):
+            # import pdb; pdb.set_trace()
+            # ind = ops.index_expr((index + 1) * inp_dim, torch.float32)
+            # return ops.index_expr(ops.ceil(ops.div(ind, out_dim)), torch.int32)
+            return sympy.functions.elementary.integers.ceiling(((index + 1) * out_dim) / inp_dim)
+            # return ops.index_expr(int(ops.ceil(float((index + 1) * inp_dim) / out_dim)), torch.int32)
+
+        h_start_index = start_index(bh, h_out, h_in_size_hint)
+        w_start_index = start_index(bw, w_out, w_in_size_hint)
+
+        h_end_index = end_index(bh, h_out, h_in_size_hint)
+        w_end_index = end_index(bw, w_out, w_in_size_hint)
+
+        total = None
+        for ih, iw in itertools.product(range(h_kernel_max), range(w_kernel_max)):
+            val = loader(prefix, [ih, iw], [h_start_index, w_start_index], [h_end_index, w_end_index])
+            if total is None:
+                total = val
+            else:
+                total = ops.add(val, total)
+        return total
+
+    ones_loader = pad_adaptive_loader(ones_like(x))
+
+    def fn(idx):
+        # TODO(jansel): optimize to do `int(x<h)` rather than `x<h?1:0`
+        return ops.div(fn_sum(idx, pad_adaptive_loader(x)), fn_sum(idx, ones_loader))
+
+    rv = Pointwise.create(
+        device=x.get_device(),
+        dtype=dtype,
+        inner_fn=fn,
+        ranges=new_size,
+    )
+    # TODO(jansel): should we force these to be realized?
+    return rv
+
 
 
 @register_lowering(aten.avg_pool2d, type_promote=False)
@@ -2158,13 +2267,6 @@ def avg_pool2d_backward(
         ranges=new_size,
     )
     return rv
-
-
-@register_lowering(aten._adaptive_avg_pool2d)
-def _adaptive_avg_pool2d(x, output_size):
-    assert isinstance(x, TensorBox)
-    assert len(output_size) == 2
-    return TensorBox.create(ir.AdaptiveAvgPool2d.create(x, output_size))
 
 
 def _validate_reduction_axis(x, axis):
