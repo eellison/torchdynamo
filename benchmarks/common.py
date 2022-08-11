@@ -36,6 +36,15 @@ from torchdynamo.testing import dummy_fx_compile
 from torchdynamo.testing import format_speedup
 from torchdynamo.testing import same
 
+
+import torch
+
+from torch._subclasses.fake_tensor import FakeTensorMode, FakeCopyMode
+from benchmark_utils import OperatorInputsMode
+
+import copy
+
+
 try:
     from functorch._src.aot_autograd import set_model_name
 except ImportError:
@@ -1458,7 +1467,55 @@ def main(runner, original_dir=None):
 
     experiment = functools.partial(experiment, args, model_iter_fn)
 
-    if args.only:
+    skip_models = (
+        # "MT5ForConditionalGeneration"
+    )
+
+    from os.path import exists
+    args.collect_operator_inputs = False
+    if args.collect_operator_inputs:
+        for device, name, model, example_inputs in runner.iter_models(args):
+
+            # ignore the output.csv generated for output
+            output_path = "/".join(args.output.split("/")[:-1])
+            output_path = output_path if output_path[-1] == "/" else output_path + "/"
+            output = f"{output}{name}.json"
+
+            if name != "hf_BigBird":
+                continue
+            print(f"Running {name}")
+            if args.float32:
+                model, example_inputs = cast_to_fp32(model, example_inputs)
+            elif args.float16:
+                model, example_inputs = cast_to_fp16(model, example_inputs)
+
+            operator_mode = OperatorInputsMode()
+
+            fake_tensor_mode = FakeTensorMode()
+
+            with torch._subclasses.fake_tensor.FakeCopyMode(fake_tensor_mode):
+                model_fake = copy.deepcopy(model)
+                example_inputs_fake = copy.deepcopy(example_inputs)
+
+            try:
+                with fake_tensor_mode, operator_mode:
+                    result = model_iter_fn(model_fake, example_inputs_fake, collect_outputs=False)
+
+            except Exception as e:
+                logging.warn(f"{name} failed to run with fake tensors, trying real. Exception: {e}")
+
+                operator_mode = OperatorInputsMode()
+                try:
+                    with operator_mode:
+                        result = model_iter_fn(model, example_inputs, collect_outputs=False)
+                except Exception as e2:
+                    import pdb; pdb.set_trace()
+                    logging.warn(f"{name} failed to run with fake and real")
+                    raise e2 from e
+                
+            # print(f"Writing output to {output}")
+            # operator_mode.log_to_file(output)
+    elif args.only:
         for device in args.devices:
             try:
                 device, name, model, example_inputs = runner.load_model(
@@ -1472,7 +1529,6 @@ def main(runner, original_dir=None):
             except NotImplementedError:
                 logging.warn(f"{args.only} failed to load")
                 continue  # bad benchmark implementation
-
             current_name = name
             current_device = device
             set_model_name(name)
@@ -1482,18 +1538,35 @@ def main(runner, original_dir=None):
             elif args.float16:
                 model, example_inputs = cast_to_fp16(model, example_inputs)
 
-            runner.run_one_model(
-                name,
-                model,
-                args.training,
-                model_iter_fn,
-                example_inputs,
-                optimize_ctx,
-                accuracy_ctx,
-                experiment,
-                args.skip_accuracy_check,
-                args.dynamic_shapes,
-            )
+            # runner.run_one_model(
+            #     name,
+            #     model,
+            #     args.training,
+            #     model_iter_fn,
+            #     example_inputs,
+            #     optimize_ctx,
+            #     accuracy_ctx,
+            #     experiment,
+            #     args.skip_accuracy_check,
+            #     args.dynamic_shapes,
+            # )
+
+            operator_mode = OperatorInputsMode()
+
+            fake_tensor_mode = FakeTensorMode()
+
+            with torch._subclasses.fake_tensor.FakeCopyMode(fake_tensor_mode):
+                model = copy.deepcopy(model)
+                example_inputs = copy.deepcopy(example_inputs)
+
+            try:
+                with fake_tensor_mode, operator_mode:
+                    result = model_iter_fn(model, example_inputs, collect_outputs=False)
+            except Exception as e:
+                import pdb; pdb.set_trace()
+                print(e)
+            # import pdb; pdb.set_trace()
+
         if args.generate_aot_autograd_stats:
             stats_file = output_filename.split(".csv")[0] + "_stats.csv"
             output_csv(
