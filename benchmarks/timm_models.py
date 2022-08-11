@@ -296,7 +296,8 @@ class TimmRunnner(BenchmarkRunner):
         )
 
     def compute_loss(self, pred):
-        return self.loss(pred, self.target)
+        # calling lift so modes enabled for forward/backward can handle self.target
+        return self.loss(pred, torch.ops.aten.lift_fresh_copy(self.target))
 
     def forward_pass(self, mod, inputs, collect_outputs=True):
         return mod(*inputs)
