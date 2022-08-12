@@ -1049,17 +1049,17 @@ class CommonTemplate:
             check_lowp=False,
         )
 
-    def test_adaptive_avg_pool2d1(self):
-        def fn(x):
-            return aten._adaptive_avg_pool2d(x, (6, 6)), aten._adaptive_avg_pool2d(
-                x + 1, (4, 5)
-            )
+    # def test_adaptive_avg_pool2d1(self):
+    #     def fn(x):
+    #         return aten._adaptive_avg_pool2d(x, (6, 6)), aten._adaptive_avg_pool2d(
+    #             x + 1, (4, 5)
+    #         )
         
-        import pdb; pdb.set_trace()
-        self.common(
-            fn,
-            (torch.randn(2, 4, 16, 16),),
-        )
+    #     import pdb; pdb.set_trace()
+    #     self.common(
+    #         fn,
+    #         (torch.randn(2, 4, 16, 16),),
+    #     )
 
     def test_max_pool2d1(self):
         def fn(x):

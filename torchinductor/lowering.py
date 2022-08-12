@@ -21,6 +21,8 @@ from .utils import has_torchvision_roi_align
 from .utils import sympy_product
 from .virtualized import V
 from .virtualized import ops
+import math
+
 
 lowerings = {}
 aten = torch.ops.aten
@@ -1938,11 +1940,12 @@ def max_pool2d_with_indices_backward(
         ranges=new_size,
     )
 
-def pad_adaptive_loader(x):
-    *_, h, w = x.get_size()
+def pad_adaptive_loader(x, min_kernel_sizes, max_kernel_sizes):
+    h_kernel_min, w_kernel_max = min_kernel_sizes
+    h_kernel_max, w_kernel_max = max_kernel_sizes
+
     x_loader = x.make_loader()
 
-    # loader(prefix, [ih, iw], [h_start_index, w_start_index], [h_end_index, w_end_index])
     def load(prefix, increments, start_indices, end_indices):
         ih, iw = increments
         h_start_index, w_start_index = start_indices
@@ -1953,16 +1956,15 @@ def pad_adaptive_loader(x):
         
         mask = ops.and_(
             ops.lt(
-                ops.add(h_start_index, ih),
-                h_end_index
+                ops.add(ops.index_expr(h_start_index, torch.int32), ih_expr),
+                ops.index_expr(h_end_index, torch.int32)
             ),
             ops.lt(
-                ops.add(w_start_index, iw),
-                w_end_index
+                ops.add(ops.index_expr(w_start_index, torch.int32), iw_expr),
+                ops.index_expr(w_end_index, torch.int32)
             ),
         )
-
-        return ops.masked(mask, lambda: x_loader([*prefix, ih, iw]), 0.0)
+        return ops.masked(mask, lambda: x_loader([*prefix, h_start_index + ih, w_start_index + iw]), 0.0)
 
     return load
 
@@ -1976,92 +1978,62 @@ def _adaptive_avg_pool2d(x, output_size):
     h_out, w_out = output_size
 
     # if input is multiple of output, can directly lowering to avg_pool2d
-    # if V.graph.sizevars.size_hint(h % h_out) == 0 and V.graph.sizevars.size_hint(w % w_out) == 0:
-    #     assert V.graph.sizevars.maybe_guard_multiple_of(h, h_out) and V.graph.sizevars.maybe_guard_multiple_of(w, w_out)
-    #     kernel_size = [h / h_out, w / w_out]
-    #     return avg_pool2d(x, kernel_size)
+    if V.graph.sizevars.size_hint(h % h_out) == 0 and V.graph.sizevars.size_hint(w % w_out) == 0:
+        assert V.graph.sizevars.maybe_guard_multiple_of(h, h_out) and V.graph.sizevars.maybe_guard_multiple_of(w, w_out)
+        kernel_size = [h / h_out, w / w_out]
+        return avg_pool2d(x, kernel_size)
 
     x.realize_hint()
 
-    h_in_size_hint = V.graph.sizevars.size_hint(h)
-    w_in_size_hint = V.graph.sizevars.size_hint(w)
+    h_in = V.graph.sizevars.guard_static_shape(h)
+    w_in = V.graph.sizevars.guard_static_shape(w)
 
-    import math
-    h_kernel_min = math.floor(h_in_size_hint / h_out)
-    w_kernel_min = math.floor(w_in_size_hint / w_out) 
+    # all kernels will at least access this many h/w elements
+    h_kernel_min = math.floor(h_in / h_out)
+    w_kernel_min = math.floor(w_in / w_out) 
 
-    h_kernel_max = int(math.ceil(h_in_size_hint / h_out))
-    w_kernel_max = int(math.ceil(w_in_size_hint / w_out)) 
+    # all kernels will at access at most this many h/w elements
+    h_kernel_max = int(math.ceil(h_in / h_out))
+    w_kernel_max = int(math.ceil(w_in / w_out)) 
 
     new_size = list(batch) + [h_out, w_out]
     dtype = x.get_dtype()
     
-    def fn_sum(idx, loader, padded_loader):
+    def fn_sum(idx, padded_loader):
         *prefix, bh, bw = idx
 
-
         def start_index(index, out_dim, inp_dim):
-            index = ops.index_expr(index, torch.int32)
-            return ops.div(ops.mul(index, inp_dim), out_dim)
-            # import pdb; pdb.set_trace()
-            return (index * inp_dim) / out_dim
-            # ind = ops.index_expr(index * inp_dim, torch.float32)
-            # return ops.index_expr(ops.floor(ops.div(ind, out_dim)), torch.int32)
-            # return ((index * inp_dim) / out_dim)
-            # tmp = ops.floor(ops.to_dtype((index * inp_dim), torch.float32) / out_dim)
-            # return tmp
-            # return ops.index_expr(ops.floor(ops.to_dtype((index * inp_dim), torch.float32) / out_dim), torch.int32)
-    
+            return ir.IndexingDiv(index * inp_dim, out_dim)
+
         def end_index(index, out_dim, inp_dim):
-            index = ops.index_expr(index, torch.int32)
-            tmp = ops.mul(ops.add(index, 1), inp_dim)
-            tmp = ops.sub(ops.add(tmp, out_dim), 1)
-            return ops.div(tmp, out_dim)
-            # return (tmp + out_dim - 1) / out_dim
-            # return ((index + 1) * inp_dim + out_dim - 1
+            return ir.IndexingDiv((index + 1) * inp_dim + out_dim - 1, out_dim)
 
-            # int(ops.ceil(float((index + 1) * inp_dim) / out_dim)),
-            # import pdb; pdb.set_trace()
-            # ind = ops.index_expr((index + 1) * inp_dim, torch.float32)
-            # return ops.index_expr(ops.ceil(ops.div(ind, out_dim)), torch.int32)
-            # import pdb; pdb.set_trace()
-            # return ops.ceil(((index + 1) * out_dim) / inp_dim)
-            # return ops.index_expr(int(ops.ceil(float((index + 1) * inp_dim) / out_dim)), torch.int32)
+        h_start_index = start_index(bh, h_out, h_in)
+        w_start_index = start_index(bw, w_out, w_in)
 
-        h_in_expr = ops.constant(h_in_size_hint, torch.int32)
-        w_in_expr = ops.constant(w_in_size_hint, torch.int32)
-
-        h_out_expr = ops.constant(h_out, torch.int32)
-        w_out_expr = ops.constant(w_out, torch.int32)
-
-        h_start_index = start_index(bh, h_out_expr, h_in_expr)
-        w_start_index = start_index(bw, w_out_expr, w_in_expr)
-
-        h_end_index = end_index(bh, h_out_expr, h_in_expr)
-        w_end_index = end_index(bw, w_out, w_in_expr)
+        h_end_index = end_index(bh, h_out, h_in)
+        w_end_index = end_index(bw, w_out, w_in)
 
         total = None
         for ih, iw in itertools.product(range(h_kernel_max), range(w_kernel_max)):
-            # if ih < min index, you dont need to do a masked load
-            import pdb; pdb.set_trace()
-            if ih < h_kernel_min and iw < w_kernel_min:
-                import pdb; pdb.set_trace()
-                val = loader([*prefix, ops.add(h_start_index, ops.constant(ih)), ops.add(w_start_index, ops.constant(iw))])
-            else:
-                val = padded_loader(prefix, [ih, iw], [h_start_index, w_start_index], [h_end_index, w_end_index])
+            val = padded_loader(prefix, [ih, iw], [h_start_index, w_start_index], [h_end_index, w_end_index])
             if total is None:
                 total = val
             else:
                 total = ops.add(val, total)
         return total
-    
+
     ones = ones_like(x)
-    x_loader = x.make_loader()
-    ones_loader = ones.make_loader()
+
+    min_kernel_sizes = [h_kernel_min, w_kernel_min]
+    max_kernel_sizes = [h_kernel_max, w_kernel_max]
+
+    x_loader = pad_adaptive_loader(x, min_kernel_sizes, max_kernel_sizes)
+    ones_loader = pad_adaptive_loader(ones, min_kernel_sizes, max_kernel_sizes)
 
     def fn(idx):
         # TODO(jansel): optimize to do `int(x<h)` rather than `x<h?1:0`
-        return ops.div(fn_sum(idx, x_loader, pad_adaptive_loader(x)), fn_sum(idx, ones.get_loader(), pad_adaptive_loader(ones)))
+        return ops.div(fn_sum(idx, x_loader), fn_sum(idx, ones_loader))
 
     rv = Pointwise.create(
         device=x.get_device(),
@@ -2117,6 +2089,7 @@ def avg_pool2d(
         total = None
         for ih, iw in itertools.product(range(kernel_size[0]), range(kernel_size[1])):
             ih = bh * stride[0] + ih - padding[0]
+            import pdb; pdb.set_trace()
             iw = bw * stride[1] + iw - padding[1]
             val = loader([*prefix, ih, iw])
             if total is None:

@@ -4,11 +4,12 @@ from benchmark_helper import time_with_torch_timer
 import torchdynamo
 import torchdynamo.config
 import torchinductor.config as config
+from torchdynamo.testing import same
 aten = torch.ops.aten
 
 @torchdynamo.optimize("inductor", nopython=True)
 def inductor_avg_pool(x):
-    return (aten._adaptive_avg_pool2d(x, (1, 1)),)
+    return (aten._adaptive_avg_pool2d(x, (2, 2)),)
     # , aten._adaptive_avg_pool2d(
     #             x + 1, (4, 5)
     #         )
@@ -41,7 +42,7 @@ def inductor_avg_pool(x):
 if __name__ == "__main__":
     import torchinductor
     torchinductor.config.debug = True
-    inp = torch.randn(1, 1, 2, 2).cuda()
+    inp = torch.randn(2, 2, 9, 9).cuda()
     out = inductor_avg_pool(inp)
-    import pdb; pdb.set_trace()
-    print(out)
+    out2 = aten._adaptive_avg_pool2d(inp, (2, 2))
+    assert same(out[0], out2)
