@@ -1054,7 +1054,8 @@ class CommonTemplate:
             return aten._adaptive_avg_pool2d(x, (6, 6)), aten._adaptive_avg_pool2d(
                 x + 1, (4, 5)
             )
-
+        
+        import pdb; pdb.set_trace()
         self.common(
             fn,
             (torch.randn(2, 4, 16, 16),),
@@ -2564,13 +2565,13 @@ class CommonTemplate:
         self.assertEqual(torchinductor.metrics.generated_kernel_count, 4)
 
 
-if HAS_CPU:
+# if HAS_CPU:
 
-    class CpuTests(TestCase):
-        common = check_model
-        device = "cpu"
+#     class CpuTests(TestCase):
+#         common = check_model
+#         device = "cpu"
 
-    CommonTemplate.install(CpuTests, "cpu")
+#     CommonTemplate.install(CpuTests, "cpu")
 
 if HAS_CUDA:
 
