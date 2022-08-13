@@ -3,6 +3,7 @@ import itertools
 import logging
 from typing import List
 
+import math
 import sympy
 import torch
 import torch.fx
@@ -1947,10 +1948,6 @@ def pad_adaptive_loader(x):
         h_start_index, w_start_index = start_indices
         h_end_index, w_end_index = end_indices
 
-        ih_expr = ops.index_expr(ih, torch.int64)
-        iw_expr = ops.index_expr(iw, torch.int64)
-        
-
         mask = ops.and_(
             ops.lt(
                 ops.index_expr(h_start_index + ih, torch.int64),
@@ -1961,11 +1958,8 @@ def pad_adaptive_loader(x):
                 ops.index_expr(w_end_index, torch.int64)
             ),
         )
-        def foo():
-            import pdb; pdb.set_trace() 
-            return x_loader([*prefix, h_start_index + ih, w_start_index + iw])
 
-        ops.masked(mask, lambda: x_loader([*prefix, ih, iw]), 0.0)
+        return ops.masked(mask, lambda: x_loader([*prefix, h_start_index + ih, w_start_index + iw]), 0.0)
 
     return load
 
@@ -1986,40 +1980,35 @@ def _adaptive_avg_pool2d(x, output_size):
 
     x.realize_hint()
 
-    # guard on the max kernel size, height and width likely stable (TODO-how to relax guard if it has previously failed ?)
-    h_in_size_hint = V.graph.sizevars.size_hint(h)
-    w_in_size_hint = V.graph.sizevars.size_hint(w)
-    # add guard
+    h_in = V.graph.sizevars.guard_static_shape(h)
+    w_in = V.graph.sizevars.guard_static_shape(w)
 
-    import math
-    h_kernel_max = int(math.ceil(h_in_size_hint / h_out))
-    w_kernel_max = int(math.ceil(w_in_size_hint / w_out)) 
+    h_kernel_max = math.ceil(h_in / h_out)
+    w_kernel_max = math.ceil(w_in / w_out)
+
+    # TODO - only need to mask the load when iter >= h_kernel_min
+    h_kernel_min = math.floor(h_in / h_out)
+    w_kernel_min = math.floor(w_in/ w_out)
 
     new_size = list(batch) + [h_out, w_out]
     dtype = x.get_dtype()
-    
+
     def fn_sum(idx, loader):
         *prefix, bh, bw = idx
 
         def start_index(index, out_dim, inp_dim):
-            # ind = ops.index_expr(index * inp_dim, torch.float32)
-            # return ops.index_expr(ops.floor(ops.div(ind, out_dim)), torch.int32)
-            return ((index * inp_dim) / out_dim)
-            # return ops.index_expr(ops.floor(float(index * inp_dim) / out_dim), torch.int32)
+            return ir.IndexingDiv((index * inp_dim), out_dim)
     
         def end_index(index, out_dim, inp_dim):
-            # import pdb; pdb.set_trace()
-            # ind = ops.index_expr((index + 1) * inp_dim, torch.float32)
-            # return ops.index_expr(ops.ceil(ops.div(ind, out_dim)), torch.int32)
-            return sympy.functions.elementary.integers.ceiling(((index + 1) * out_dim) / inp_dim)
-            # return ops.index_expr(int(ops.ceil(float((index + 1) * inp_dim) / out_dim)), torch.int32)
+            return ir.IndexingDiv((index + 1) * inp_dim + out_dim - 1, out_dim)
 
-        h_start_index = start_index(bh, h_out, h_in_size_hint)
-        w_start_index = start_index(bw, w_out, w_in_size_hint)
+        h_start_index = start_index(bh, h_out, h_in)
+        w_start_index = start_index(bw, w_out, w_in)
 
-        h_end_index = end_index(bh, h_out, h_in_size_hint)
-        w_end_index = end_index(bw, w_out, w_in_size_hint)
+        h_end_index = end_index(bh, h_out, h_in)
+        w_end_index = end_index(bw, w_out, w_in)
 
+        # TODO - accumulate in fp32
         total = None
         for ih, iw in itertools.product(range(h_kernel_max), range(w_kernel_max)):
             val = loader(prefix, [ih, iw], [h_start_index, w_start_index], [h_end_index, w_end_index])
