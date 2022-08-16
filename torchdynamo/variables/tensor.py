@@ -114,6 +114,14 @@ class TensorVariable(VariableTracker):
             def wrap_fake_exception(func):
                 return func()
 
+        def to_real(t):
+            if isinstance(x, torch._subclasses.FakeTensor):
+                return torch.empty_strided(
+                    x.size(), x.stride(), device=x.device, dtype=x.dtype
+                )
+            else:
+                return x
+    
         initial_example_value = example_value
         with preserve_rng_state():
             if example_value is None:
@@ -139,15 +147,36 @@ class TensorVariable(VariableTracker):
                     # the pre-hooks which initialize it
                     example_value = nnmodule(*args, **kwargs)
                 try:
+                    # if "getitem" in repr(proxy.node.target):
+                    #     import pdb; pdb.set_trace()
+                    
+                    if proxy.node.target == operator.getitem:
+                        for inp in torch.utils._pytree.tree_flatten((args, kwargs))[0]:
+                            if type(inp) == slice:
+                                if any(isinstance(e, torch._subclasses.FakeTensor) for e in (inp.start, inp.stop, inp.step)):
+                                    raise RuntimeError("Dynamic Shape op") 
+
                     with context():
                         example_value = wrap_fake_exception(
                             lambda: cls.run_proxy(proxy, args, kwargs, nnmodule)
                         )
+                    # if op != "call_module":
+                    #     args, kwargs = tree_map(to_real, ((args, kwargs)))
+                    #     failed = False
+                    #     try:
+                    #         cls.run_proxy(proxy, args, kwargs, nnmodule)
+                    #     except Exception:
+                    #         failed = True
+                    #     if not failed:
+                    #         flat_tensors_2 = [
+                    #             i for i in tree_flatten(out2)[0] if isinstance(i, torch.TEnsor)
+                    #         ]
                 except RuntimeError as e:
                     raise TorchRuntimeError() from e
             else:
                 if use_fake_tensors:
                     example_value = fake_wrapper(example_value)
+
 
         if isinstance(example_value, torch.Tensor):
             is_parameter = isinstance(example_value, torch.nn.Parameter)
@@ -171,6 +200,7 @@ class TensorVariable(VariableTracker):
             istype(example_value, (torch.Size, int, bool, float))
             and config.dynamic_shapes
         ):
+            import pdb; pdb.set_trace()
             proxy.node.meta["example_value"] = example_value
             if isinstance(example_value, torch.Size):
                 options["dyn_shape_len"] = len(example_value)
