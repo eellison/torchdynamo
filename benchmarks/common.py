@@ -1633,7 +1633,7 @@ def main(runner, original_dir=None):
 
 def log_operator_inputs(model, example_inputs, model_iter_fn, name, args):
     mode = "training" if args.training else "eval"
-    output = os.path.join(os.path.dirname(args.output), f"{name}_{mode}.json")
+    output = os.path.join(os.path.dirname(args.output), f"{name}_{mode}.txt")
 
     # TODO - add option for coalescing inputs over multiple runs
     if os.path.exists(output):
@@ -1645,27 +1645,27 @@ def log_operator_inputs(model, example_inputs, model_iter_fn, name, args):
     operator_mode = OperatorInputsMode()
     fake_tensor_mode = FakeTensorMode()
 
-    with torch._subclasses.fake_tensor.FakeCopyMode(fake_tensor_mode):
-        model_fake = copy.deepcopy(model)
-        example_inputs_fake = copy.deepcopy(example_inputs)
+    # with torch._subclasses.fake_tensor.FakeCopyMode(fake_tensor_mode):
+    #     model_fake = copy.deepcopy(model)
+    #     example_inputs_fake = copy.deepcopy(example_inputs)
+    # try:
+    #     with fake_tensor_mode, operator_mode:
+    #         model_iter_fn(model_fake, example_inputs_fake, collect_outputs=False)
+    # except Exception as e:
+    # print(f"{name} failed to run with fake tensors, trying real. Exception: {e}")
+    operator_mode = OperatorInputsMode()
     try:
-        with fake_tensor_mode, operator_mode:
-            model_iter_fn(model_fake, example_inputs_fake, collect_outputs=False)
-    except Exception as e:
-        print(f"{name} failed to run with fake tensors, trying real. Exception: {e}")
-        operator_mode = OperatorInputsMode()
-        try:
-            with operator_mode:
-                model_iter_fn(model, example_inputs, collect_outputs=False)
-        except Exception as e2:
-            print(f"{name} failed to run with real. Exception: {e2}")
-            raise
+        with operator_mode:
+            model_iter_fn(model, example_inputs, collect_outputs=False)
+    except Exception as e2:
+        print(f"{name} failed to run with real. Exception: {e2}")
+        raise
 
     print(f"Writing output to {output}")
     operator_mode.log_to_file(output)
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.WARNING)
-    warnings.filterwarnings("ignore")
-    main()
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.WARNING)
+#     warnings.filterwarnings("ignore")
+#     main()
