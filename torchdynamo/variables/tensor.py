@@ -56,6 +56,16 @@ def preserve_rng_state():
             torch.cuda.set_rng_state(cuda_rng)
 
 
+def invoking_item_on_tensor(proxy, args, kwargs):
+    return (
+        proxy.node.op == "call_method"
+        and proxy.node.target == "item"
+        and len(args) == 1
+        and len(kwargs) == 0
+        and isinstance(args[0], torch.Tensor)
+    )
+
+
 class TensorVariable(VariableTracker):
     """A torch.Tensor input or an intermediate value in the FX graph"""
 
@@ -114,10 +124,25 @@ class TensorVariable(VariableTracker):
                 return func()
 
         initial_example_value = example_value
+
+        args, kwargs = cls.propagate_args_kwargs(proxy.node)
+
+        # handling before calling invoking proxy to avoid DataDependentOutputException
+        if (
+            invoking_item_on_tensor(proxy, args, kwargs)
+            and use_fake_tensors
+            and config.capture_scalar_outputs
+        ):
+            # item raw value should not be accessed
+            return FakeItemVariable.create(
+                tx=tx,
+                proxy=proxy,
+                example_value=torch.zeros((), dtype=args[0].dtype) ** options,
+            )
+
         with preserve_rng_state():
             if example_value is None:
                 op = proxy.node.op
-                args, kwargs = cls.propagate_args_kwargs(proxy.node)
                 if use_fake_tensors:
                     args = tree_map(fake_wrapper, args)
                     kwargs = tree_map(fake_wrapper, kwargs)
