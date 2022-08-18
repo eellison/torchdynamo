@@ -29,6 +29,7 @@ from .virtualized import V
 from .virtualized import ops
 
 lowerings = {}
+fallbacks = set()
 aten = torch.ops.aten
 prims = torch.ops.prims
 needs_realized_inputs = set()
@@ -702,6 +703,8 @@ def bmm(a: TensorBox, b: TensorBox):
 
 def make_fallback(kernel):
     add_needs_realized_inputs(kernel)
+
+    fallbacks.add(kernel)
 
     @register_lowering(kernel, type_promote=False)
     def handler(*args):

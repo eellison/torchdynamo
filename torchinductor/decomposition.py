@@ -22,6 +22,7 @@ decompositions = get_decompositions(
         aten._adaptive_avg_pool2d_backward,
         aten.addcmul,
         aten.avg_pool2d_backward,
+        aten.std_mean.correction,
         aten.clamp_max,
         aten.clamp_min,
         aten.cudnn_batch_norm,
