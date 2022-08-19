@@ -217,7 +217,7 @@ class OperatorInputsLoader:
             self.operator_db[operator] = op_inps
 
     def get_inputs_for_operator(
-        self, operator, dtype, device="cuda"
+        self, operator, dtype=None, device="cuda"
     ) -> Generator[Tuple[Iterable[Any], Dict[str, Any]], None, None]:
         assert (
             str(operator) in self.operator_db
@@ -228,8 +228,6 @@ class OperatorInputsLoader:
             yield
             return
 
-    # counter represents number of times these inputs occured, ignored for now
-        # try:
         for line in self.operator_db[str(operator)].items():
             inps = line[0]
             counter = line[1]
@@ -238,18 +236,18 @@ class OperatorInputsLoader:
             except Exception as e:
                 import pdb; pdb.set_trace()
                 print(e)
-            to_dtype = partial(map_to_dtype, dtype=dtype)
-            args, kwargs = tree_map(to_dtype, (args, kwargs))
+
+            # Backwards require some inputs to be float16 and some to be float32
+            # So we record on half and upcast to float when specified
+            if dtype and dtype != torch.float16:
+                to_dtype = partial(map_to_dtype, dtype=dtype)
+                args, kwargs = tree_map(to_dtype, (args, kwargs))
 
             if device:
                 to_device = partial(map_to_device, device=torch.device(device))
                 args, kwargs = tree_map(to_device, (args, kwargs))
 
-            import pdb; pdb.set_trace
             yield args, kwargs
-        # except Exception as e:
-        #     import pdb; pdb.set_trace()
-        #     print(e)
 
     def get_all_ops(self):
         for key in self.operator_db.keys():

@@ -11,6 +11,8 @@ from torchdynamo.testing import same
 from torchinductor.compile_fx import compile_fx
 from torchinductor.utils import gen_gm_and_inputs
 from torchinductor import config as inductor_config
+from os.path import exists
+
 
 from torchinductor.lowering import lowerings, fallbacks
 from torchinductor.decomposition import decompositions
@@ -78,8 +80,14 @@ def microbenchmark(target, args, kwargs, dtype):
 
 def skip_operator(operator):
     if "nll_loss" in str(operator) or "aten.index" in str(operator) or operator == aten.scatter_.src:
+        # maybe disable aten.native_layer_norm.default
         # TODO - inputs cannot be randomly initialized, causes cyda failures
         print(f"Skipping {operator}, input generator nyi")
+        return True
+
+    # illegal memory address in inductor: TODO - debug
+    if operator == aten.native_layer_norm.default:
+        print(f"Skipping {operator}, inductor illegal memory address")
         return True
 
     # not covered by other non-compute operator heuristics
@@ -111,7 +119,8 @@ def skip_operator(operator):
 )
 @click.option("--op", help="operator overload to benchmark")
 @click.option("--dtype", help="dtype to benchmark")
-def benchmark(suite, op, dtype):
+@click.option("--max-samples", help="max samples per op", default=15)
+def benchmark(suite, op, dtype, max_samples):
     assert suite in ("timm", "huggingface", "torchbench"), f"got {suite}"
     if suite == "timm":
         loader = OperatorInputsLoader.get_timm_loader()
@@ -124,28 +133,32 @@ def benchmark(suite, op, dtype):
     dtype_str = dtype
     dtype = torch.float16 if dtype == "float16" else torch.float32
 
+    filename = f"timings_{suite}_{dtype_str}.txt"
+    file_exists = exists(filename)
+    if file_exists:
+        with open(filename, "r") as file:
+            previous_record = file.read()
+    else:
+        previous_record = ""
+
     f = open(f"timings_{suite}_{dtype_str}.txt", "a")
 
     MAX_INPUTS_TO_BENCHMARK = 15
 
-    skip_ops = False
 
     for operator in loader.get_all_ops():
-        if operator == aten.index.Tensor:
-            skip_ops = False
-
-        if skip_operator(operator):
+        if str(operator) in previous_record:
+            print(f"Skipping {operator} already contained")
             continue
 
-        
-        if skip_ops:
+        if skip_operator(operator):
             continue
 
         print(f"Running {operator}")
         inp_gen = loader.get_inputs_for_operator(operator, dtype=dtype)
         timings = []
 
-        for i in range(MAX_INPUTS_TO_BENCHMARK):
+        for i in range(min(max_samples, 1000000)):
             print(f"Iter {i}")
             try:
                 inps = next(inp_gen)
