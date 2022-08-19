@@ -77,7 +77,7 @@ def microbenchmark(target, args, kwargs, dtype):
     # print(f"Inductor speedup over aten {medians[1]/medians[2]}")
 
 def skip_operator(operator):
-    if "nll_loss" in str(operator):
+    if "nll_loss" in str(operator) or "aten.index" in str(operator) or operator == aten.scatter_.src:
         # TODO - inputs cannot be randomly initialized, causes cyda failures
         print(f"Skipping {operator}, input generator nyi")
         return True
@@ -121,23 +121,39 @@ def benchmark(suite, op, dtype):
         loader = OperatorInputsLoader.get_torchbench_loader()
 
     assert dtype in ("float16", "float32"), f"got {dtype}"
+    dtype_str = dtype
     dtype = torch.float16 if dtype == "float16" else torch.float32
 
-    f = open(f"timings_{suite}_{dtype}.txt", "a")
+    f = open(f"timings_{suite}_{dtype_str}.txt", "a")
+
+    MAX_INPUTS_TO_BENCHMARK = 15
+
+    skip_ops = False
 
     for operator in loader.get_all_ops():
+        if operator == aten.index.Tensor:
+            skip_ops = False
+
         if skip_operator(operator):
+            continue
+
+        
+        if skip_ops:
             continue
 
         print(f"Running {operator}")
         inp_gen = loader.get_inputs_for_operator(operator, dtype=dtype)
         timings = []
-        while True:
+
+        for i in range(MAX_INPUTS_TO_BENCHMARK):
+            print(f"Iter {i}")
             try:
-                args, kwargs = next(inp_gen)
+                inps = next(inp_gen)
+                if inps is None:
+                    break
+                args, kwargs = inps
             except StopIteration:
                 break
-
             try:
                 out = microbenchmark(operator, args, kwargs, dtype)
                 # aten, nvfuser, inductor
@@ -146,6 +162,10 @@ def benchmark(suite, op, dtype):
                 print(f"error {operator}")
                 print(e)
                 pass
+
+        if not timings:
+            continue
+
         timings = torch.tensor(timings).T
         q = torch.tensor([0.2, 0.5, 0.8], dtype=torch.float64)
         output = f"\n{operator}:\nNVFUSER Speedups : {(torch.quantile(timings[0] / timings[1], q)).tolist()}"

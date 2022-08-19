@@ -1,0 +1,19 @@
+
+aten._log_softmax.default:
+NVFUSER Speedups : tensor([1.0203, 1.0304, 1.0445], dtype=torch.float64)\Inductor Speedups : tensor([1.1437, 1.1553, 1.1602], dtype=torch.float64)
+aten._log_softmax.default:
+NVFUSER Speedups : [0.9957913692356293, 1.0, 1.002737523010497]\Inductor Speedups : [1.0949458227154938, 1.1075269517123005, 1.116419922612221]
+aten._log_softmax_backward_data.default:
+NVFUSER Speedups : [0.9857602682902683, 0.9887096854448647, 0.9895825284915836]\Inductor Speedups : [1.0473570831239674, 1.12857136472119, 1.135683196182364]
+aten._log_softmax.default:
+NVFUSER Speedups : [0.9966101657756291, 1.0, 1.0018991489733746]
+Inductor Speedups : [1.1009918449761225, 1.1153846201682822, 1.116287515852771]
+aten._log_softmax_backward_data.default:
+NVFUSER Speedups : [0.9862821373727704, 0.9952532203711715, 1.0]
+Inductor Speedups : [1.120246924439058, 1.127906986862956, 1.1420674232177646]
+aten._log_softmax.default:
+NVFUSER Speedups : [0.9992395379196913, 1.0, 1.0041714277789433]
+Inductor Speedups : [1.1087215774897627, 1.117270753187909, 1.1192103276373682]
+aten._log_softmax_backward_data.default:
+NVFUSER Speedups : [0.9772213639460579, 0.99276405512796, 1.0060259288060984]
+Inductor Speedups : [1.148022008895397, 1.1734317680018738, 1.1871238620174651]

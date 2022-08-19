@@ -11,9 +11,11 @@ from typing import Iterable
 from typing import Tuple
 
 import torch
+import math
 from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_flatten
 from torch.utils._pytree import tree_map
+
 
 OP_INP_DIRECTORY = os.path.join(os.path.dirname(__file__), "operator_inp_logs")
 
@@ -35,6 +37,8 @@ class FuncCallWrapper:
     def __repr__(self):
         args = ", ".join([repr(arg) for arg in self.args])
         kwargs = ", ".join([f"{key}={value}" for key, value in self.kwargs.items()])
+        # TODO: device should just be "cuda"
+        # TODO: get rid of the strings are keys
         return f"{self.call}({args}{kwargs})"
 
 
@@ -172,10 +176,22 @@ def map_to_dtype(e, dtype):
 
 
 def deserialize_args(inps):
-    return eval(
-        inps.strip().strip("'"),
-        {"T": deserialize_tensor, "ST": deserialize_sparse_tensor, "th": torch},
-    )
+    try:
+        inps = inps.strip().strip("'")
+        inps = inps.replace("\\\'", "'")
+        inps = inps.replace("'th.device('cuda')'", "'cuda'")
+        inps = inps.replace('"th.device(\'cuda\')"', "'cuda'")
+
+        if "th.device" in inps:
+            import pdb; pdb.set_trace()
+        out = eval(
+            inps.strip().strip("'").strip('"'),
+            {"T": deserialize_tensor, "ST": deserialize_sparse_tensor, "th": torch, "inf": math.inf},
+        )
+        return out
+    except Exception as e:
+        import pdb; pdb.set_trace()
+        raise e
 
 
 class OperatorInputsLoader:
@@ -212,10 +228,16 @@ class OperatorInputsLoader:
             yield
             return
 
-        # counter represents number of times these inputs occured, ignored for now
-        for inps, counter in self.operator_db[str(operator)].items():
-            args, kwargs = deserialize_args(inps)
-
+    # counter represents number of times these inputs occured, ignored for now
+        # try:
+        for line in self.operator_db[str(operator)].items():
+            inps = line[0]
+            counter = line[1]
+            try:
+                args, kwargs = deserialize_args(inps)
+            except Exception as e:
+                import pdb; pdb.set_trace()
+                print(e)
             to_dtype = partial(map_to_dtype, dtype=dtype)
             args, kwargs = tree_map(to_dtype, (args, kwargs))
 
@@ -223,7 +245,11 @@ class OperatorInputsLoader:
                 to_device = partial(map_to_device, device=torch.device(device))
                 args, kwargs = tree_map(to_device, (args, kwargs))
 
+            import pdb; pdb.set_trace
             yield args, kwargs
+        # except Exception as e:
+        #     import pdb; pdb.set_trace()
+        #     print(e)
 
     def get_all_ops(self):
         for key in self.operator_db.keys():
