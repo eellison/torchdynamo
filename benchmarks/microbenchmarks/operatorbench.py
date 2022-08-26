@@ -13,26 +13,28 @@ from torchinductor.decomposition import decompositions
 from torchinductor.lowering import fallbacks
 from torchinductor.lowering import lowerings
 from torchinductor.utils import gen_gm_and_inputs
+import traceback
 
 aten = torch.ops.aten
 
 
 def compute_speedups(repeats, models, example_inputs, accuracy_checking=False):
     expected = models[0](*example_inputs)
-    if accuracy_checking:
-        for model in models[1:]:
-            actual = model(*example_inputs)
-            assert same(actual, expected), expected[0] - actual[0]
+    for model in models[1:]:
+        actual = model(*example_inputs)
+        if not same(actual, expected):
+            print("NOT SAME")
+            assert False, expected[0] - actual[0]
 
-    timings = np.zeros((repeats, len(models)), np.float64)
-    for rep in range(repeats):
-        # interleave the runs to handle frequency scaling and load changes
-        for m, model in enumerate(models):
-            # do_bench() clears L2 cache to hide the latency of CPU launch time
-            # along with cuda synchronization
-            median_ms, _, _ = triton.testing.do_bench(lambda: model(*example_inputs))
-            timings[rep, m] = median_ms
-    return np.median(timings, axis=0)
+    # timings = np.zeros((repeats, len(models)), np.float64)
+    # for rep in range(repeats):
+    #     # interleave the runs to handle frequency scaling and load changes
+    #     for m, model in enumerate(models):
+    #         # do_bench() clears L2 cache to hide the latency of CPU launch time
+    #         # along with cuda synchronization
+    #         median_ms, _, _ = triton.testing.do_bench(lambda: model(*example_inputs))
+    #         timings[rep, m] = median_ms
+    # return np.median(timings, axis=0)
 
 
 def strip_overloads(gm):
@@ -69,7 +71,7 @@ def microbenchmark(target, args, kwargs, dtype, accuracy_checking):
     repeats = 3
     medians = compute_speedups(
         repeats,
-        [cudagraphs_eager, cudagraphs_jit, compiled_fn],
+        [cudagraphs_eager, compiled_fn],
         gm_args,
     )
     return medians
@@ -177,20 +179,20 @@ def benchmark(suite, op, dtype, max_samples, accuracy_checking):
                     microbenchmark(operator, args, kwargs, dtype, accuracy_checking)
                 )
             except Exception as e:
-                print(f"error {operator}")
-                print(e)
+                print(f"error {operator}, {e}")
+                traceback.print_exc()
                 pass
 
         if not timings:
             continue
 
-        timings = torch.tensor(timings).T
-        q = torch.tensor([0.2, 0.5, 0.8], dtype=torch.float64)
-        output = f"\n{operator}:\nNVFUSER Speedups : {(torch.quantile(timings[0] / timings[1], q)).tolist()}"
-        output = f"{output}\nInductor Speedups : {(torch.quantile(timings[0] / timings[2], q)).tolist()}"
-        if op == "all":
-            f.write(output)
-        print(output)
+        # timings = torch.tensor(timings).T
+        # q = torch.tensor([0.2, 0.5, 0.8], dtype=torch.float64)
+        # output = f"\n{operator}:\nNVFUSER Speedups : {(torch.quantile(timings[0] / timings[1], q)).tolist()}"
+        # output = f"{output}\nInductor Speedups : {(torch.quantile(timings[0] / timings[2], q)).tolist()}"
+        # if op == "all":
+        #     f.write(output)
+        # print(output)
 
     if op == "all":
         f.close()

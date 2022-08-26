@@ -1,0 +1,79 @@
+Running aten._adaptive_avg_pool2d.default
+Iter 0
+Iter 1
+Iter 2
+Skipping aten._adaptive_avg_pool2d_backward.default, no inductor impl
+Running aten.clone.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Skipping aten.convolution_backward.default, no inductor impl
+Running aten.copy_.default
+Iter 0
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 1
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 2
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 3
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 4
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 5
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 6
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 7
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 8
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 9
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 10
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 11
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 12
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 13
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 14
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Running aten.div.Tensor
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten.max_pool2d_with_indices.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+error aten.max_pool2d_with_indices.default, CUDA error: an illegal memory access was encountered
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+Iter 5

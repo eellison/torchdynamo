@@ -1,0 +1,479 @@
+Running aten._log_softmax.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten._log_softmax_backward_data.default
+Iter 0
+error aten._log_softmax_backward_data.default, 
+Iter 1
+error aten._log_softmax_backward_data.default, 
+Iter 2
+error aten._log_softmax_backward_data.default, 
+Iter 3
+error aten._log_softmax_backward_data.default, 
+Iter 4
+error aten._log_softmax_backward_data.default, 
+Iter 5
+error aten._log_softmax_backward_data.default, 
+Iter 6
+error aten._log_softmax_backward_data.default, 
+Iter 7
+error aten._log_softmax_backward_data.default, 
+Iter 8
+error aten._log_softmax_backward_data.default, 
+Iter 9
+error aten._log_softmax_backward_data.default, 
+Iter 10
+error aten._log_softmax_backward_data.default, 
+Iter 11
+error aten._log_softmax_backward_data.default, 
+Iter 12
+error aten._log_softmax_backward_data.default, 
+Iter 13
+error aten._log_softmax_backward_data.default, 
+Iter 14
+error aten._log_softmax_backward_data.default, 
+Running aten._softmax.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+error aten._softmax.default, conversion is supported for Half type only
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten._softmax_backward_data.default
+Iter 0
+error aten._softmax_backward_data.default, 
+Iter 1
+error aten._softmax_backward_data.default, 
+Iter 2
+error aten._softmax_backward_data.default, 
+Iter 3
+error aten._softmax_backward_data.default, 
+Iter 4
+NOT SAME
+error aten._softmax_backward_data.default, tensor([[[[ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  0.0000e+00],
+          [-2.4414e-04,  1.2207e-04,  2.4414e-04,  ...,  9.1553e-05,
+            2.4414e-04,  3.6621e-04],
+          [ 3.6621e-04, -1.2207e-04, -1.2207e-04,  ..., -4.8828e-04,
+            2.4414e-04, -3.6621e-04],
+          ...,
+          [ 4.8828e-04,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  0.0000e+00],
+          [ 0.0000e+00,  9.5367e-07,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  0.0000e+00],
+          [ 6.1035e-05,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+           -6.1035e-05,  0.0000e+00]],
+
+         [[-2.4414e-04,  1.2207e-04,  1.2207e-04,  ...,  2.4414e-04,
+           -2.4414e-04, -1.2207e-04],
+          [-2.4414e-04, -2.4414e-04,  0.0000e+00,  ..., -2.4414e-04,
+           -4.8828e-04,  0.0000e+00],
+          [-1.5259e-05, -3.0518e-04,  1.5259e-04,  ...,  2.4414e-04,
+            2.4414e-04,  5.7220e-06],
+          ...,
+          [ 1.5259e-05,  1.5259e-05, -3.0518e-05,  ..., -1.5259e-05,
+            3.0518e-05, -3.8147e-06],
+          [ 1.2207e-04,  3.0518e-04,  9.1553e-05,  ...,  1.5259e-05,
+           -4.5776e-05,  1.2207e-04],
+          [ 0.0000e+00, -6.1035e-05,  0.0000e+00,  ...,  0.0000e+00,
+           -7.6294e-06, -2.4414e-04]],
+
+         [[ 3.0518e-05, -1.2207e-04,  0.0000e+00,  ..., -1.2207e-04,
+           -6.1035e-05,  1.2207e-04],
+          [ 2.5940e-04, -2.4796e-05,  2.4414e-04,  ..., -1.9073e-05,
+            8.3923e-05,  2.7466e-04],
+          [ 2.4414e-04, -1.2207e-04, -2.4414e-04,  ..., -7.6294e-06,
+           -1.2207e-04,  6.1035e-05],
+          ...,
+          [ 6.1035e-05,  2.4414e-04,  4.8828e-04,  ..., -2.4414e-04,
+           -3.0518e-05, -1.2207e-04],
+          [-1.2207e-04,  0.0000e+00,  0.0000e+00,  ...,  2.4414e-04,
+            0.0000e+00,  0.0000e+00],
+          [ 2.4414e-04, -2.4414e-04,  6.1035e-05,  ..., -1.2207e-04,
+           -1.2207e-04,  2.4414e-04]],
+
+         ...,
+
+         [[-1.9073e-06, -6.1035e-05,  1.2207e-04,  ...,  3.0518e-05,
+            1.2207e-04,  4.5776e-05],
+          [ 1.5259e-04,  5.7220e-05,  1.0681e-04,  ..., -8.3923e-05,
+            1.5259e-04, -1.3733e-04],
+          [-3.0518e-05,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  0.0000e+00],
+          ...,
+          [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+            2.4414e-04,  2.4414e-04],
+          [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  1.2207e-04],
+          [-2.4414e-04, -1.2207e-04,  3.0518e-05,  ...,  1.2207e-04,
+            3.0518e-05, -1.8311e-04]],
+
+         [[ 7.6294e-06,  2.4414e-04, -1.2207e-04,  ...,  4.8828e-04,
+            1.2207e-04,  1.2207e-04],
+          [ 6.1035e-05, -1.5259e-04, -2.4414e-04,  ...,  1.8311e-04,
+           -4.5776e-05,  2.3842e-06],
+          [ 8.0109e-05,  5.1498e-05,  2.1362e-04,  ...,  2.4796e-05,
+           -1.8311e-04,  3.9673e-04],
+          ...,
+          [ 1.2207e-04,  6.1035e-05,  3.0518e-05,  ...,  3.8147e-06,
+            6.1035e-05, -6.1035e-05],
+          [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  0.0000e+00],
+          [-1.5259e-04,  1.0681e-04,  7.6294e-05,  ..., -2.3842e-06,
+            2.4414e-04, -2.4414e-04]],
+
+         [[-9.5367e-07,  1.2207e-04, -6.1035e-05,  ..., -1.2207e-04,
+           -6.1035e-05,  1.5259e-05],
+          [-6.1035e-05,  1.2207e-04,  1.2207e-04,  ..., -1.2207e-04,
+            6.1035e-05, -1.2207e-04],
+          [-2.4414e-04, -1.2207e-04,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  0.0000e+00],
+          ...,
+          [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  2.4414e-04],
+          [ 6.1035e-05, -2.6226e-05, -4.1962e-05,  ...,  6.1035e-05,
+            1.2398e-05, -2.6226e-06],
+          [ 0.0000e+00, -2.4414e-04,  0.0000e+00,  ...,  0.0000e+00,
+            0.0000e+00,  0.0000e+00]]]], device='cuda:0')
+Iter 5
+error aten._softmax_backward_data.default, 
+Iter 6
+error aten._softmax_backward_data.default, 
+Iter 7
+error aten._softmax_backward_data.default, 
+Iter 8
+error aten._softmax_backward_data.default, 
+Iter 9
+error aten._softmax_backward_data.default, 
+Iter 10
+error aten._softmax_backward_data.default, 
+Iter 11
+error aten._softmax_backward_data.default, 
+Iter 12
+error aten._softmax_backward_data.default, 
+Iter 13
+error aten._softmax_backward_data.default, 
+Iter 14
+error aten._softmax_backward_data.default, 
+Running aten._to_copy.default
+Iter 0
+Iter 1
+NOT SAME
+error aten._to_copy.default, tensor([[[[0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [nan, 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [nan, 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [nan, 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        ...,
+
+
+        [[[0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [nan, 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [nan, 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [nan, 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]]], device='cuda:0',
+       dtype=torch.float16)
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+error aten._to_copy.default, Invalid device string: 'torch.device('cpu')'
+Iter 7
+Iter 8
+NOT SAME
+error aten._to_copy.default, tensor([[[[0., 0., nan,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., nan,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., nan,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        ...,
+
+
+        [[[0., 0., nan,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., nan,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]],
+
+
+        [[[0., 0., nan,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          ...,
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.],
+          [0., 0., 0.,  ..., 0., 0., 0.]]]], device='cuda:0',
+       dtype=torch.float16)
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Skipping aten._unsafe_view.default, non compute operator
+Running aten.add.Tensor
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten.any.default
+Iter 0
+NOT SAME
+error aten.any.default, Subtraction, the `-` operator, with two bool tensors is not supported. Use the `^` or `logical_xor()` operator instead.
+Iter 1
+NOT SAME
+error aten.any.default, Subtraction, the `-` operator, with two bool tensors is not supported. Use the `^` or `logical_xor()` operator instead.
+Iter 2
+NOT SAME
+error aten.any.default, Subtraction, the `-` operator, with two bool tensors is not supported. Use the `^` or `logical_xor()` operator instead.
+Iter 3
+NOT SAME
+error aten.any.default, Subtraction, the `-` operator, with two bool tensors is not supported. Use the `^` or `logical_xor()` operator instead.
+Iter 4
+NOT SAME
+error aten.any.default, Subtraction, the `-` operator, with two bool tensors is not supported. Use the `^` or `logical_xor()` operator instead.
+Iter 5
+NOT SAME
+error aten.any.default, Subtraction, the `-` operator, with two bool tensors is not supported. Use the `^` or `logical_xor()` operator instead.
+Iter 6
+Iter 7
+Running aten.clone.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten.copy_.default
+Iter 0
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 1
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 2
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 3
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 4
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 5
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 6
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 7
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 8
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 9
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 10
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 11
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 12
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 13
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Iter 14
+torchinductor.compile_fx: [WARNING] skipping cudagraphs due to input mutation
+Running aten.embedding.default
+Iter 0
+Running aten.embedding_dense_backward.default
+Iter 0
+Running aten.gelu.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten.gelu_backward.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten.isinf.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Running aten.isnan.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Running aten.lt.Tensor
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Skipping aten.masked_fill_.Scalar, input generator nyi
+Running aten.mul.Tensor
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+Iter 4
+Iter 5
+Iter 6
+Iter 7
+Iter 8
+Iter 9
+Iter 10
+Iter 11
+Iter 12
+Iter 13
+Iter 14
+Running aten.native_layer_norm.default
+Iter 0
+Iter 1
+Iter 2
+Iter 3
+error aten.native_layer_norm.default, CUDA error: an illegal memory access was encountered
+CUDA kernel errors might be asynchronously reported at some other API call,so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
+Iter 4
