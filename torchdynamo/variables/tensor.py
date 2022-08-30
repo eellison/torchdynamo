@@ -25,6 +25,7 @@ from torch.utils._pytree import tree_map
 
 from torchdynamo.guards import GuardBuilder
 
+from torch.utils._pytree import tree_map, tree_flatten
 from .. import config
 from .. import variables
 from ..exc import TorchRuntimeError
@@ -41,6 +42,57 @@ from .base import typestr
 from .constant import ConstantVariable
 from .lists import ShapeVariable
 from .lists import SizeVariable
+from torch.utils._python_dispatch import TorchDispatchMode
+
+
+class CrossRefSparseFakeMode(TorchDispatchMode):
+    def __torch_dispatch__(self, func, types, args=(), kwargs=None):
+        kwargs = kwargs or {}
+
+        def on_tensor(f):
+            def go(t):
+                if isinstance(t, torch.Tensor):
+                    return f(t)
+                else:
+                    return t
+            return go
+
+        fake_r = None
+        # empty_like excluded for now due to sparse complex
+        # aten._to_dense.default this one is getting called with csc
+        if (
+            func not in [
+                torch.ops.aten.lift_fresh.default,
+                torch.ops.aten.empty_like.default,
+                torch.ops.aten.set_.source_Storage_storage_offset,
+                torch.ops.aten.sspaddmm.out,
+                torch.ops.aten._spdiags.default,
+                torch.ops.aten._to_dense.default
+            ]
+            and torch.Tag.dynamic_output_shape not in func.tags
+            and torch.Tag.inplace_view not in func.tags
+        ):
+            from torch._subclasses.fake_tensor import FakeTensorMode, UnsupportedFakeTensorException
+            try:
+                with FakeTensorMode(allow_meta=True) as fake_mode:
+                    fake_args, fake_kwargs = tree_map(on_tensor(fake_mode.from_tensor), (args, kwargs))
+                    fake_r = func(*fake_args, **fake_kwargs)
+            except UnsupportedFakeTensorException:
+                pass
+
+        r = func(*args, **kwargs)
+        if fake_r is not None:
+            try:
+                    for fake_out, real_out in zip(tree_flatten(r)[0], tree_flatten(fake_r)[0]):
+                        if isinstance(fake_out, torch.Tensor):
+                            assert isinstance(real_out, torch.Tensor)
+                            torch._prims.utils.compare_tensor_meta(fake_out, real_out)
+            except Exception as e:
+                import pdb; pdb.set_trace()
+                print(e)
+                raise
+
+        return r
 
 
 @contextmanager
@@ -102,54 +154,76 @@ class TensorVariable(VariableTracker):
             return cls(proxy, **options)
 
         use_fake_tensors = fake_tensors_available and config.fake_tensor_propagation
-        if use_fake_tensors:
-            fake_wrapper = functools.partial(
-                wrap_to_fake_tensor, fake_mode=tx.fake_mode
-            )
-            # python errors if the import isnt here
-            from ..utils import wrap_fake_exception
-        else:
+        fake_wrapper = functools.partial(
+            wrap_to_fake_tensor, fake_mode=tx.fake_mode
+        )
+        from ..utils import wrap_fake_exception
 
-            def wrap_fake_exception(func):
-                return func()
+        # python errors if the import isnt here
 
         args = kwargs = None
         initial_example_value = example_value
 
-        with preserve_rng_state():
-            if example_value is None:
-                op = proxy.node.op
-                args, kwargs = cls.propagate_args_kwargs(proxy.node)
-                if use_fake_tensors:
-                    args = tree_map(fake_wrapper, args)
-                    kwargs = tree_map(fake_wrapper, kwargs)
-                    if op == "call_module" and not is_lazy_module(nnmodule):
-                        nnmodule = deepcopy_to_fake_tensor(nnmodule, tx.fake_mode)
+        li = []
 
-                    def context():
-                        return enable_torch_dispatch_mode(tx.fake_mode)
+        for i in range(2):
+            use_fake_tensors = (i == 1)
+            with preserve_rng_state():
+                if example_value is None:
+                    op = proxy.node.op
+                    args, kwargs = cls.propagate_args_kwargs(proxy.node)
+                    # if "Conv2d" in repr(nnmodule):
+                    #     import pdb; pdb.set_trace()
 
+                    if use_fake_tensors:
+                        args = tree_map(fake_wrapper, args)
+                        kwargs = tree_map(fake_wrapper, kwargs)
+
+                        if op == "call_module" and not is_lazy_module(nnmodule):
+                            nnmodule = deepcopy_to_fake_tensor(nnmodule, tx.fake_mode)
+
+                        def context():
+                            return enable_torch_dispatch_mode(tx.fake_mode)
+
+                    else:
+                        def context():
+                            return enable_torch_dispatch_mode(CrossRefSparseFakeMode())
+
+                        if op == "call_module" and not is_lazy_module(nnmodule):
+                            nnmodule = copy.deepcopy(nnmodule)
+
+                    if op == "call_module" and is_lazy_module(nnmodule):
+                        assert nnmodule is not None
+                        # In the case of a lazy module, we want to run
+                        # the pre-hooks which initialize it
+                        out_example_value = nnmodule(*args, **kwargs)
+                    try:
+                        with context():
+                            out_example_value = wrap_fake_exception(
+                                lambda: cls.run_proxy(proxy, args, kwargs, nnmodule)
+                            )
+                    except RuntimeError as e:
+                        import pdb; pdb.set_trace()
+                        raise TorchRuntimeError() from e
                 else:
-                    context = contextlib.nullcontext
-                    if op == "call_module" and not is_lazy_module(nnmodule):
-                        nnmodule = copy.deepcopy(nnmodule)
+                    if use_fake_tensors:
+                        out_example_value = fake_wrapper(example_value)
+                    else:
+                        out_example_value = example_value
+                li.append(out_example_value)
+        
+        try:
+                for fake_out, real_out in zip(tree_flatten(li[0])[0], tree_flatten(li[1])[0]):
+                    if isinstance(fake_out, torch.Tensor):
+                        assert isinstance(real_out, torch.Tensor)
+                        torch._prims.utils.compare_tensor_meta(fake_out, real_out)
+        except Exception as e:
+            import pdb; pdb.set_trace()
+            print(e)
+            raise
 
-                if op == "call_module" and is_lazy_module(nnmodule):
-                    assert nnmodule is not None
-                    # In the case of a lazy module, we want to run
-                    # the pre-hooks which initialize it
-                    example_value = nnmodule(*args, **kwargs)
-                try:
-                    with context():
-                        example_value = wrap_fake_exception(
-                            lambda: cls.run_proxy(proxy, args, kwargs, nnmodule)
-                        )
-                except RuntimeError as e:
-                    raise TorchRuntimeError() from e
-            else:
-                if use_fake_tensors:
-                    example_value = fake_wrapper(example_value)
-
+        example_value = li[0]
+        # example_value = out_example_value
         # Avoids a .item() call in the tensor slice that would attempt to get a value out
         # fake tensors, and which would determine the output shape of the slice.
         # It is a workaround until https://github.com/pytorch/pytorch/pull/83567
