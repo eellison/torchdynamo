@@ -17,6 +17,8 @@ from torch.utils._pytree import tree_flatten
 from torch.utils._pytree import tree_map
 from torch.testing import make_tensor
 
+log = logging.getLogger(__name__)
+
 OP_INP_DIRECTORY = os.path.join(os.path.dirname(__file__), "operator_inp_logs")
 
 TIMM_DIR = os.path.join(OP_INP_DIRECTORY, "timm_train")
@@ -214,12 +216,15 @@ def map_to_dtype(e, dtype):
 def deserialize_args(inps):
     inps = inps.strip().strip("'")
     global_vals = {
-        "T": deserialize_tensor,
-        "ST": deserialize_sparse_tensor,
-        "th": torch,
-        "inf": math.inf,
-        "torch": torch,
-    } | dtype_abbrs_parsing
+        **{
+            "T": deserialize_tensor,
+            "ST": deserialize_sparse_tensor,
+            "th": torch,
+            "inf": math.inf,
+            "torch": torch,
+        },
+        **dtype_abbrs_parsing,
+    }
     # f strings introduce quotations we dont want
     for key in dtype_abbrs_parsing:
         inps = inps.replace(f"'{key}'", key)
@@ -259,7 +264,7 @@ class OperatorInputsLoader:
         ), f"Could not find {operator}, must provide overload"
 
         if "embedding" in str(operator):
-            logging.warn("Embedding inputs NYI, input data cannot be randomized")
+            log.warning("Embedding inputs NYI, input data cannot be randomized")
             yield
             return
 

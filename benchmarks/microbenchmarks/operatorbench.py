@@ -179,9 +179,9 @@ def benchmark(suite, op, dtype, max_samples, accuracy_checking):
                     microbenchmark(operator, args, kwargs, dtype, accuracy_checking)
                 )
             except Exception as e:
-                print(f"error {operator}, {e}")
-                traceback.print_exc()
-                pass
+                print(f"error {operator}")
+                print(e)
+                raise e
 
         if not timings:
             continue

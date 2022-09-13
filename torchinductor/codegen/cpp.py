@@ -26,6 +26,7 @@ from .common import OpOverrides
 DTYPE_TO_CPP = {
     torch.float32: "float",
     torch.float64: "double",
+    torch.float16: "half",
     torch.int64: "long",
     torch.int32: "int",
     torch.int16: "short",
@@ -108,6 +109,9 @@ def cpp_prefix():
             #include <omp.h>
 
             #include <ATen/core/PhiloxRNGEngine.h>
+            #include <c10/util/Half.h>
+
+            typedef at::Half half;
 
             template<typename T>
             inline T mod(T a, T b) { return a % b; }
@@ -187,6 +191,14 @@ class CppOverrides(OpOverrides):
         return f"std::sqrt({x})"
 
     @staticmethod
+    def rsqrt(x):
+        return f"1 / std::sqrt({x})"
+
+    @staticmethod
+    def signbit(x):
+        return f"std::signbit({x})"
+
+    @staticmethod
     def pow(a, b):
         return f"std::pow({a}, {b})"
 
@@ -223,6 +235,10 @@ class CppOverrides(OpOverrides):
         return f"{a} / {b}"
 
     @staticmethod
+    def fmod(a, b):
+        return f"std::fmod({a}, {b})"
+
+    @staticmethod
     def isinf(x):
         return f"std::isinf({x})"
 
@@ -256,6 +272,8 @@ class CppOverrides(OpOverrides):
             return f"std::numeric_limits<{DTYPE_TO_CPP[dtype]}>::infinity()"
         elif val == float("-inf"):
             return f"-std::numeric_limits<{DTYPE_TO_CPP[dtype]}>::infinity()"
+        elif val is True or val is False:
+            return ops.to_dtype(str(val).lower(), dtype)
         return ops.to_dtype(repr(val), dtype)
 
     @staticmethod
@@ -266,13 +284,12 @@ class CppOverrides(OpOverrides):
     def masked(mask, body, other):
         code = BracesBuffer()
         var = V.kernel.cse.newvar()
-        assert isinstance(other, float)
         if other == float("-inf"):
             code.writeline(f"float {var} = -std::numeric_limits<float>::infinity();")
         elif other == float("inf"):
             code.writeline(f"float {var} = std::numeric_limits<float>::infinity();")
         else:
-            code.writeline(f"float {var} = {other!r};")
+            code.writeline(f"auto {var} = {other!r};")
         code.writeline(f"if({mask})")
         with V.kernel.swap_buffers(code), code.indent():
             result = body()
@@ -313,11 +330,13 @@ class CppKernel(Kernel):
         self.reduction_suffix = DeferredIndentedBuffer()
         self.reduction_vars = {}
 
-    def load(self, name: str, index: sympy.Expr, upcast: bool = False):
-        # upcast argument is ignored on cpu
+    def load(self, name: str, index: sympy.Expr):
         var = self.args.input(name)
         index = self.rename_indexing(index)
-        return self.cse.generate(self.loads, f"{var}[{cexpr(index)}]")
+        line = f"{var}[{cexpr(index)}]"
+        if V.graph.get_dtype(name) in (torch.float16, torch.bfloat16):
+            line = f"static_cast<float>({line})"
+        return self.cse.generate(self.loads, line)
 
     def store(self, name, index, value, mode=None):
         assert "buf" in name

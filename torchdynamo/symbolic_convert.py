@@ -463,7 +463,7 @@ class InstructionTranslatorBase(object):
         spec = self.f_globals.get("__spec__")
         if package is not None:
             if spec is not None and package != spec.parent:
-                log.warn(
+                log.warning(
                     "__package__ != __spec__.parent "
                     f"({package!r} != {spec.parent!r})",
                     ImportWarning,
@@ -473,7 +473,7 @@ class InstructionTranslatorBase(object):
         elif spec is not None:
             return spec.parent
         else:
-            log.warn(
+            log.warning(
                 "can't resolve package from __spec__ or __package__, "
                 "falling back on __name__ and __path__",
                 ImportWarning,
@@ -1261,7 +1261,9 @@ class InstructionTranslatorBase(object):
         self.nn_module_stack: Dict[str, str] = {}
 
         if fake_tensors_available:
-            with torch._subclasses.FakeTensorMode() as fake_mode:
+            with torch._subclasses.FakeTensorMode(
+                throw_on_data_dependent_ops=True
+            ) as fake_mode:
                 pass
             self._fake_mode = fake_mode
 
@@ -1291,6 +1293,7 @@ class InstructionTranslator(InstructionTranslatorBase):
         code_options,
         compiler_fn,
         one_graph,
+        export,
     ):
         super(InstructionTranslator, self).__init__(
             output=OutputGraph(f_globals, code_options, compiler_fn, self),
@@ -1304,6 +1307,12 @@ class InstructionTranslator(InstructionTranslatorBase):
             f_code=f_code,
         )
         self.one_graph: bool = one_graph
+        self.export = export
+        if self.export:
+            assert (
+                self.one_graph
+            ), "Export without one graph - something has gone wrong."
+
         vars = list(code_options["co_varnames"])
         vars.extend(x for x in self.cell_and_freevars() if x not in vars)
         self.symbolic_locals = collections.OrderedDict(
@@ -1381,6 +1390,7 @@ class InstructionTranslator(InstructionTranslatorBase):
 
         new_code: types.CodeType = ContinueExecutionCache.lookup(
             self.f_code,
+            self.lineno,
             inst.offset,
             len(self.stack),
             argnames,
@@ -1407,7 +1417,7 @@ class InstructionTranslator(InstructionTranslatorBase):
         return cg.get_instructions()
 
     def RETURN_VALUE(self, inst):
-        if self.output.count_calls() == 0:
+        if self.output.count_calls() == 0 and not self.export:
             raise exc.SkipFrame()
         self.instruction_pointer = None
         self.output.compile_subgraph(self)
