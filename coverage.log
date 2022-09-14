@@ -1,0 +1,57 @@
+[W ParallelNative.cpp:229] Warning: Cannot set number of intraop threads after parallel work has started or after set_num_threads call when using native parallel backend (function set_num_threads)
+[W ParallelNative.cpp:229] Warning: Cannot set number of intraop threads after parallel work has started or after set_num_threads call when using native parallel backend (function set_num_threads)
+[W ParallelNative.cpp:229] Warning: Cannot set number of intraop threads after parallel work has started or after set_num_threads call when using native parallel backend (function set_num_threads)
+[W ParallelNative.cpp:229] Warning: Cannot set number of intraop threads after parallel work has started or after set_num_threads call when using native parallel backend (function set_num_threads)
+[W ParallelNative.cpp:229] Warning: Cannot set number of intraop threads after parallel work has started or after set_num_threads call when using native parallel backend (function set_num_threads)
+cuda train BERT_pytorch                       > /scratch/eellison/work/pytorch/torch/_subclasses/fake_tensor.py(661)__torch_dispatch__()
+-> raise Exception(
+(Pdb) > /scratch/eellison/work/pytorch/torch/utils/_python_dispatch.py(74)wrapped()
+-> return f(self, *args, **kwargs)
+(Pdb) > /scratch/eellison/work/pytorch/torch/_ops.py(56)__call__()
+-> return self._op(*args, **kwargs or {})
+(Pdb) > /scratch/eellison/work/pytorch/torch/_subclasses/fake_tensor.py(459)__torch_dispatch__()
+-> return func(*args, **kwargs)
+(Pdb) > /scratch/eellison/work/torchdynamo/torchdynamo/utils.py(249)clone_input()
+-> result.copy_(x.clone())
+(Pdb) 244  	        cache_line_offset = (
+245  	            (x.data_ptr() - buffer.data_ptr()) % 32
+246  	        ) // x.element_size()
+247  	        result = torch.as_strided(buffer, x.size(), x.stride(), cache_line_offset)
+248  	        try:
+249  ->	            result.copy_(x.clone())
+250  	            result.requires_grad_(x.requires_grad)
+251  	        except RuntimeError:
+252  	            # RuntimeError: unsupported operation: more than one element of the written-to
+253  	            # tensor refers to a single memory location. Please clone() the tensor before
+254  	            # performing the operation.
+(Pdb) > /scratch/eellison/work/torchdynamo/torchdynamo/utils.py(270)clone_inputs()
+-> res[i] = clone_input(res[i])
+(Pdb) > /scratch/eellison/work/torchdynamo/benchmarks/common.py(853)run_one_model()
+-> copy.deepcopy(model), torchdynamo.utils.clone_inputs(example_inputs)
+(Pdb) > /scratch/eellison/work/torchdynamo/benchmarks/common.py(1524)main()
+-> runner.run_one_model(
+(Pdb) Traceback (most recent call last):
+  File "/scratch/eellison/work/torchdynamo/benchmarks/torchbench.py", line 378, in <module>
+  File "/scratch/eellison/work/torchdynamo/benchmarks/common.py", line 1524, in main
+    runner.run_one_model(
+  File "/scratch/eellison/work/torchdynamo/benchmarks/common.py", line 853, in run_one_model
+    copy.deepcopy(model), torchdynamo.utils.clone_inputs(example_inputs)
+  File "/scratch/eellison/work/torchdynamo/torchdynamo/utils.py", line 270, in clone_inputs
+    res[i] = clone_input(res[i])
+  File "/scratch/eellison/work/torchdynamo/torchdynamo/utils.py", line 249, in clone_input
+    result.copy_(x.clone())
+  File "/scratch/eellison/work/pytorch/torch/_subclasses/fake_tensor.py", line 459, in __torch_dispatch__
+    return func(*args, **kwargs)
+  File "/scratch/eellison/work/pytorch/torch/_ops.py", line 56, in __call__
+    return self._op(*args, **kwargs or {})
+  File "/scratch/eellison/work/pytorch/torch/utils/_python_dispatch.py", line 74, in wrapped
+    return f(self, *args, **kwargs)
+  File "/scratch/eellison/work/pytorch/torch/_subclasses/fake_tensor.py", line 661, in __torch_dispatch__
+    raise Exception(
+  File "/scratch/eellison/work/pytorch/torch/_subclasses/fake_tensor.py", line 661, in __torch_dispatch__
+    raise Exception(
+  File "/scratch/eellison/work/env/lib/python3.9/bdb.py", line 88, in trace_dispatch
+    return self.dispatch_line(frame)
+  File "/scratch/eellison/work/env/lib/python3.9/bdb.py", line 113, in dispatch_line
+    if self.quitting: raise BdbQuit
+bdb.BdbQuit
