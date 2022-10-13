@@ -205,38 +205,144 @@ def remove_unaligned_input_idxs(inputs, static_input_idxs):
     return static_input_idxs
 
 
+@dataclasses.dataclass
+class AllocatedStorage:
+    storage: torch.UntypedStorage
+    current_offset: int
+    ten: torch.Tensor
+
+    def available_memory(self):
+        return self.storage.size() - self.current_offset
+
+    def __lt__(self, other):
+        return self.available_memory() < other.available_memory()
+
+    def __repr__(self):
+        return f"(storage={self.storage.nbytes()}, {self.storage.device}), offset={self.current_offset})"
+
+class CudaGraphMemoryPool(object):
+    def __init__(self):
+        self.storages: List[AllocatedStorage] = []
+
+    def reset_offsets(self):
+        for stor in self.storages:
+            stor.current_offset = 0
+        self.storages.sort()
+
+    def allocate(self, inp_needed_bytes: List[int]):
+        self.reset_offsets()
+        
+        inp_needed_bytes = [size if size % 16 == 0 else (size + (16 - (size % 16))) for size in inp_needed_bytes]
+        sorted_indices = [
+            b[0] for b in sorted(enumerate(inp_needed_bytes), key=lambda i: -i[1])
+        ]
+
+        outputs = [None for _ in range(len(inp_needed_bytes))]
+
+        new_allocated_size_needed = 0
+        for i in sorted_indices:
+            needed_bytes = inp_needed_bytes[i]
+            storage_and_offset = self.search_for_memory(needed_bytes)
+            if storage_and_offset is not None:
+                outputs[i] = storage_and_offset
+            else:
+                new_allocated_size_needed += needed_bytes
+
+        print("SAVED ALLOCATION", sum(inp_needed_bytes) - new_allocated_size_needed)
+
+        if new_allocated_size_needed == 0:
+            return outputs
+
+        print("NEW ALLOCATION", new_allocated_size_needed)
+
+        # TODO - needs to be per-device
+        storage = torch.UntypedStorage(new_allocated_size_needed, device="cuda")
+        t = torch.tensor((), device='cuda').set_(storage)
+
+        new_storage = AllocatedStorage(
+            torch.UntypedStorage(new_allocated_size_needed, device="cuda"), 0, t
+        )
+        offset = 0
+        for i in range(len(inp_needed_bytes)):
+            if outputs[i] is not None:
+                continue
+            outputs[i] = (new_storage.storage, offset)
+            offset += inp_needed_bytes[i]
+
+        self.storages.append(new_storage)
+        return outputs
+
+    def search_for_memory(self, needed_bytes):
+        for i, allocated_storage in enumerate(self.storages):
+            if allocated_storage.available_memory() >= needed_bytes:
+                storage_and_offset = (allocated_storage.storage, allocated_storage.current_offset)
+                allocated_storage.current_offset += needed_bytes
+                self.storages.sort() # smallest to large
+                return storage_and_offset
+        return None
+
+
+# TODO: this should be deallocated when all compile_fx references
+# are done, should by device
+
+memory_pool = CudaGraphMemoryPool()
+
+
 def cudagraphify_impl(model, inputs, static_input_idxs=()):
     """
     Assumes inputs[static_input_idxs[i]] are always the same memory address
     """
     static_input_idxs = remove_unaligned_input_idxs(inputs, static_input_idxs)
 
-    def static_input(x):
+    def compute_needed_bytes(x):
+        # return x.storage().nbytes()
+        return (
+            sum((shape - 1) * stride for shape, stride in zip(x.size(), x.stride())) + 1
+        ) * x.element_size()
+
+    def static_input(x, storage, byte_offset):
         """
         Copy and input while preserving strides
         """
         # TODO(jansel): figure out why this version doesn't work:
         # return torch.empty_strided(x.size(), x.stride(), dtype=x.dtype, device=x.device)
-        needed_size = (
-            sum((shape - 1) * stride for shape, stride in zip(x.size(), x.stride())) + 1
+        buffer = torch.zeros((), dtype=x.dtype, device=x.device)
+        buffer.set_(
+            source=storage,
+            storage_offset=byte_offset // x.element_size(),
+            size=x.size(),
+            stride=x.stride(),
         )
-        buffer = torch.zeros(needed_size, dtype=x.dtype, device=x.device)
-        return torch.as_strided(buffer, x.size(), x.stride())
+        return buffer
 
     assert isinstance(inputs, (list, tuple))
     # dynamo wraps unspec variable as 0 dim tensor on CPU, need to move to GPU explicitly
     inputs = [x.to("cuda") if is_unspec_input(x) else x for x in inputs]
 
-    static_inputs = [
-        static_input(x) if idx not in static_input_idxs else x
+    copied_inputs = [(idx,x) for idx, x in enumerate(inputs) if idx not in static_input_idxs]
+    needed_bytes = [
+        compute_needed_bytes(x)
         for idx, x in enumerate(inputs)
+        if idx not in static_input_idxs
     ]
+    storages_and_offsets = memory_pool.allocate(needed_bytes)
+
+    stor_idx = 0
+    static_inputs = []
+    for idx, x in enumerate(inputs):
+        if idx not in static_input_idxs:
+            static_inputs.append(static_input(x, *storages_and_offsets[stor_idx]))
+            stor_idx += 1
+        else:
+            static_inputs.append(x)
 
     inps_expanded_dims = [
         get_expanded_dims(x) if idx not in static_input_idxs else []
         for idx, x in enumerate(inputs)
     ]
+    del copied_inputs
 
+    # print("TOTAL SIZE", total_size)
     # warmup
     torch.cuda.synchronize()
     stream = torch.cuda.Stream()
