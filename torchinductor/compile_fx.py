@@ -212,13 +212,13 @@ class AllocatedStorage:
     ten: torch.Tensor
 
     def available_memory(self):
-        return self.storage.size() - self.current_offset
+        return self.storage.storage().nbytes() - self.current_offset
 
     def __lt__(self, other):
         return self.available_memory() < other.available_memory()
 
     def __repr__(self):
-        return f"(storage={self.storage.nbytes()}, {self.storage.device}), offset={self.current_offset})"
+        return f"(storage={self.storage.storage().nbytes()}, {self.storage.device}), offset={self.current_offset})"
 
 class CudaGraphMemoryPool(object):
     def __init__(self):
@@ -233,10 +233,10 @@ class CudaGraphMemoryPool(object):
         self.reset_offsets()
         
         inp_needed_bytes = [size if size % 16 == 0 else (size + (16 - (size % 16))) for size in inp_needed_bytes]
+        inp_needed_bytes = [size + 64 for size in inp_needed_bytes] # Padding ??
         sorted_indices = [
             b[0] for b in sorted(enumerate(inp_needed_bytes), key=lambda i: -i[1])
         ]
-
         outputs = [None for _ in range(len(inp_needed_bytes))]
 
         new_allocated_size_needed = 0
@@ -256,11 +256,12 @@ class CudaGraphMemoryPool(object):
         print("NEW ALLOCATION", new_allocated_size_needed)
 
         # TODO - needs to be per-device
-        storage = torch.UntypedStorage(new_allocated_size_needed, device="cuda")
-        t = torch.tensor((), device='cuda').set_(storage)
-
+        # TODO - dont allocate new tensor of this size
+        t = torch.zeros((new_allocated_size_needed,), dtype=torch.int8, device='cuda')
+        # t[:] = 0==
+        # storage = torch.UntypedStorage(t.storage())
         new_storage = AllocatedStorage(
-            torch.UntypedStorage(new_allocated_size_needed, device="cuda"), 0, t
+            t, 0, t
         )
         offset = 0
         for i in range(len(inp_needed_bytes)):
@@ -296,9 +297,10 @@ def cudagraphify_impl(model, inputs, static_input_idxs=()):
 
     def compute_needed_bytes(x):
         # return x.storage().nbytes()
-        return (
-            sum((shape - 1) * stride for shape, stride in zip(x.size(), x.stride())) + 1
-        ) * x.element_size()
+        # return (
+        #     sum((shape - 1) * stride for shape, stride in zip(x.size(), x.stride())) + 1
+        # ) * x.element_size()
+        return x.storage().nbytes()
 
     def static_input(x, storage, byte_offset):
         """
@@ -308,7 +310,7 @@ def cudagraphify_impl(model, inputs, static_input_idxs=()):
         # return torch.empty_strided(x.size(), x.stride(), dtype=x.dtype, device=x.device)
         buffer = torch.zeros((), dtype=x.dtype, device=x.device)
         buffer.set_(
-            source=storage,
+            source=storage.view(x.dtype).storage(),
             storage_offset=byte_offset // x.element_size(),
             size=x.size(),
             stride=x.stride(),
@@ -348,11 +350,14 @@ def cudagraphify_impl(model, inputs, static_input_idxs=()):
     stream = torch.cuda.Stream()
     stream.wait_stream(torch.cuda.current_stream())
     # copy static_inputs because it will be cleared in model
+    print("Executing Model ", torch.tensor(0., device="cuda"))
     with torch.cuda.stream(stream):
         model(list(static_inputs))
     stream.synchronize()
     torch.cuda.current_stream().wait_stream(stream)
     torch.cuda.synchronize()
+
+    print("After Executing Model ", torch.tensor(0., device="cuda"))
 
     # record
     graph = torch.cuda.CUDAGraph()
@@ -360,6 +365,12 @@ def cudagraphify_impl(model, inputs, static_input_idxs=()):
         static_outputs = model(list(static_inputs))
     if not isinstance(static_outputs, (list, tuple)):
         static_outputs = (static_outputs,)
+
+    # for idx, x in enumerate(inputs):
+    #     if idx not in static_input_idxs:
+    #         static_inputs[idx][:] = 0
+    
+    print("After Recording Model ", torch.tensor(0., device="cuda"))
 
     if config.size_asserts:
 
@@ -393,6 +404,9 @@ def cudagraphify_impl(model, inputs, static_input_idxs=()):
                 dst.copy_(src)
             new_inputs.clear()
             graph.replay()
+            
+            print("After Replaying Model ")
+            print(torch.tensor(0., device="cuda"))
             return static_outputs
 
     return run

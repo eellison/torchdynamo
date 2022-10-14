@@ -544,6 +544,7 @@ class NodeUser:
     def get_name(self):
         return self.node.get_name()
 
+compiled_fns = 0
 
 class Scheduler:
     @dynamo_utils.dynamo_timed
@@ -697,6 +698,13 @@ class Scheduler:
                 self.mutation_real_name[node.get_name()] = self.mutation_real_name.get(
                     alt_name, alt_name
                 )
+
+        global compiled_fns
+        print("\n\nCOMPILED FNS", compiled_fns)
+        if compiled_fns == 77:
+            breakpoint()
+        print("\n\n")
+        compiled_fns += 1
 
         # make sure outputs aren't dead-code-eliminated
         for node_name in V.graph.get_output_names():
