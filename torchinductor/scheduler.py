@@ -700,10 +700,10 @@ class Scheduler:
                 )
 
         global compiled_fns
-        print("\n\nCOMPILED FNS", compiled_fns)
-        if compiled_fns == 77:
-            breakpoint()
-        print("\n\n")
+        print("\nCOMPILED FNS", compiled_fns)
+        # if compiled_fns == 77:
+        #     breakpoint()
+        # print("\n\n")
         compiled_fns += 1
 
         # make sure outputs aren't dead-code-eliminated

@@ -389,7 +389,16 @@ def cudagraphify_impl(model, inputs, static_input_idxs=()):
                     src = index_expanded_dims(src, expanded_dims)
                     dst.copy_(src)
             new_inputs.clear()
-            graph.replay()
+            try:
+                print("BEFORE REPLAY")
+                print(torch.tensor(0.).cuda())
+                graph.replay()
+                print("AFTER REPLAY")
+                print(torch.tensor(0.).cuda())
+            except Exception as e:
+                breakpoint()
+                print(e)
+                raise e
             return static_outputs
 
     else:
